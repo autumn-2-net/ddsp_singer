@@ -244,37 +244,40 @@ class BaseTask(PL.LightningModule):
 
 
     def train_dataloader(self):
-        self.training_sampler = ssvvsc_BatchSampler(
-            self.train_dataset, batch_size=self.config['batch_size'], svs_batch_size=self.config['svs_batch_size'],
-
-
-            num_replicas=(self.trainer.distributed_sampler_kwargs or {}).get('num_replicas', 1),
-            rank=(self.trainer.distributed_sampler_kwargs or {}).get('rank', 0),
-
-            shuffle=True,
-
-            seed=self.config['seed'],drop_last=False
-        )
+        # self.training_sampler = ssvvsc_BatchSampler(
+        #     self.train_dataset, batch_size=self.config['batch_size'], svs_batch_size=self.config['svs_batch_size'],
+        #
+        #
+        #     num_replicas=(self.trainer.distributed_sampler_kwargs or {}).get('num_replicas', 1),
+        #     rank=(self.trainer.distributed_sampler_kwargs or {}).get('rank', 0),
+        #
+        #     shuffle=True,
+        #
+        #     seed=self.config['seed'],drop_last=False
+        # )
+        # import torch.utils.data.DataLoader
         # self.train_dataset_collates=collates
         # self.valid_dataset_collates = collates
         return torch.utils.data.DataLoader(self.train_dataset,
-                                           collate_fn=self.train_dataset_collates,
-                                           batch_sampler=self.training_sampler,
+                                           collate_fn=self.train_dataset_collates,batch_size=self.config['batch_size'],
+                                           shuffle=True,
+                                           # batch_sampler=self.training_sampler,
                                            num_workers=self.config['DL_workers'],
                                            prefetch_factor=self.config['dataloader_prefetch_factor'],
                                            pin_memory=True,
                                            persistent_workers=True)
 
     def val_dataloader(self):
-        sampler = ssvvsc_BatchSampler_val(
-            self.valid_dataset,
-
-            rank=(self.trainer.distributed_sampler_kwargs or {}).get('rank', 0),
-
-        )
+        # sampler = ssvvsc_BatchSampler_val(
+        #     self.valid_dataset,
+        #
+        #     rank=(self.trainer.distributed_sampler_kwargs or {}).get('rank', 0),
+        #
+        # )
         return torch.utils.data.DataLoader(self.valid_dataset,
-                                           collate_fn=self.valid_dataset_collates ,
-                                           batch_sampler=sampler,
+                                           collate_fn=self.valid_dataset_collates ,batch_size=1,
+
+                                           # batch_sampler=sampler,
                                            num_workers=self.config['DL_workers_val'],
                                            prefetch_factor=self.config['dataloader_prefetch_factor'],
                                            shuffle=False)

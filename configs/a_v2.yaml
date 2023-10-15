@@ -13,12 +13,12 @@ svcdata_paths: []
 
 
 DL_workers_val: 2
-DL_workers: 7
-dataloader_prefetch_factor: 6
+DL_workers: 8
+dataloader_prefetch_factor: 4
 
 optimizer_args:
   optimizer_cls: torch.optim.AdamW
-  lr: 0.0001
+  lr: 0.0005
   beta1: 0.9
   beta2: 0.98
   weight_decay: 0
@@ -32,8 +32,8 @@ optimizer_args:
 #  lr: 0.0001
 lr_scheduler_args:
   scheduler_cls: lr_scheduler.scheduler.WarmupLR
-  warmup_steps: 5000
-  min_lr: 0.00004
+  warmup_steps: 10000
+  min_lr: 0.00025
 
 log_interval: 50
 
@@ -73,7 +73,7 @@ clip_grad_norm: 1
 
 
 
-val_check_interval: 6000
+val_check_interval: 8000
 
 num_sanity_val_steps: 1
 
@@ -98,7 +98,7 @@ dict_path: ['dictionary.txt']
 fs2_hidden_size: 256
 mixenvc_hidden_size: 256
 
-mixenvc_lays: 4
+mixenvc_lays: 3
 mixenvc_heads: 4
 mixenvc_dim_head: 64
 condition_dim: 256
@@ -130,5 +130,5 @@ num_valid_plots: 15
 pndm_speedup: 10
 
 svs_batch_size: 4
-batch_size: 7
+batch_size: 8
 accumulate_grad_batches: 1

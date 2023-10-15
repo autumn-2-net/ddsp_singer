@@ -26,7 +26,7 @@ class Pencoder(nn.Module):
         return x
 
 
-class ddsps(nn.Module):
+class ddsp_singer(nn.Module):
     def __init__(self,config,vocab_size):
         super().__init__()
         # self.svcin=nn.Linear(768,config['fs2_hidden_size'])

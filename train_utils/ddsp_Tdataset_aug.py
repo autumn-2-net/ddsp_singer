@@ -44,21 +44,21 @@ class SVS_Dataset:
         datapath=data['path_wav']
         wav,mel=wav2spec(datapath,config=self.config,device='cpu',keyshift=0, speed=1
                  )
-        key_shift=0.0
-        if self.keyaugpb is not None:
-            if random.random()<self.keyaugpb:
-                key_shift=random.uniform(-5,5)
-                _, melaug = wav2spec(datapath, config=self.config, device='cpu', keyshift=key_shift, speed=1
-                                    )
-            else:
-                melaug=mel
-        else:
-            melaug=mel
+        # key_shift=0.0
+        # if self.keyaugpb is not None:
+        #     if random.random()<self.keyaugpb:
+        #         key_shift=random.uniform(-5,5)
+        #         _, melaug = wav2spec(datapath, config=self.config, device='cpu', keyshift=key_shift, speed=1
+        #                             )
+        #     else:
+        #         melaug=mel
+        # else:
+        #     melaug=mel
 
 
 
-        f0,_=get_pitch_parselmouth(wav_data=wav, length=len(mel), hparams=self.config, speed=1, interp_uv=self.config['interp_uv'])
-        f0 *= 2 ** (key_shift / 12)
+        f0,uv=get_pitch_parselmouth(wav_data=wav, length=len(mel), hparams=self.config, speed=1, interp_uv=self.config['interp_uv'])
+        # f0 *= 2 ** (key_shift / 12)
         length=len(mel)
         # ''.strip().split(' ')
         # sst=[float(i) for i in data['ph_dur'].strip().split(' ')]
@@ -69,13 +69,13 @@ class SVS_Dataset:
         ph_idx=[self.vocab_map[i] for i in ph_l]
 
 
-        pml=len(mel)//3
-        start = random.randint(0, len(mel) - 1 - pml)
+        # pml=len(mel)//3
+        # start = random.randint(0, len(mel) - 1 - pml)
         # end = start + pml
         # promot=mel[start:end]
 
 
-        return{'f0':f0.astype(np.float32),'gtmel':melaug,'mel2ph':mel2ph,'ph_idx':ph_idx,'datal':len(mel),'key_shift':key_shift}
+        return{'f0':f0.astype(np.float32),'gtmel':mel,'mel2ph':mel2ph,'ph_idx':ph_idx,'datal':len(mel),'uv':uv,'wav':wav}
 
     def __len__(self):
         return self.dalen
