@@ -1,0 +1,134 @@
+
+
+
+
+model_cls:
+
+model_arg:
+  xxx:
+
+svsdata_paths: []
+svcdata_paths: []
+
+
+
+DL_workers_val: 2
+DL_workers: 8
+dataloader_prefetch_factor: 10
+
+optimizer_args:
+  optimizer_cls: torch.optim.AdamW
+  lr: 0.0001
+  beta1: 0.9
+  beta2: 0.98
+  weight_decay: 0
+
+#lr_scheduler_args:
+#  scheduler_cls: torch.optim.lr_scheduler.StepLR
+#  step_size: 50000
+#  gamma: 0.5
+
+#optimizer_args:
+#  lr: 0.0001
+lr_scheduler_args:
+  scheduler_cls: lr_scheduler.scheduler.WarmupLR
+  warmup_steps: 5000
+  min_lr: 0.00004
+
+log_interval: 50
+
+
+finetune_enabled: false
+finetune_ckpt_path: null
+
+finetune_ignored_params: []
+finetune_strict_shapes: true
+
+freezing_enabled: false
+frozen_params: []
+
+pl_trainer_callbacks:
+  - callback:
+      callback_cls:
+      callback_arg:
+        xxx:
+  - callback:
+      callback_cls:
+      callback_arg:
+        xxx:
+
+
+
+
+
+pl_trainer_accelerator: 'gpu'
+
+pl_trainer_devices: 'auto'
+
+pl_trainer_num_nodes: 1
+
+pl_trainer_precision: 'bf16'
+
+clip_grad_norm: 1
+
+
+
+val_check_interval: 4000
+
+num_sanity_val_steps: 1
+
+max_updates: 3200000
+
+base_work_dir: ckpt/
+
+seed: 4444
+
+
+vocoder: NsfHifiGAN
+vocoder_ckpt: checkpoints/nsf_hifigan/model
+audio_sample_rate: 44100
+audio_num_mel_bins: 128
+hop_size: 512            # Hop size.
+fft_size: 2048           # FFT size.
+win_size: 2048           # FFT size.
+fmin: 40
+fmax: 16000
+
+dict_path: ['dictionary.txt']
+fs2_hidden_size: 256
+mixenvc_hidden_size: 256
+
+mixenvc_lays: 3
+mixenvc_heads: 4
+mixenvc_dim_head: 64
+condition_dim: 256
+decoder_arg:
+  aaa:
+
+spec_min: [-5]
+spec_max: [0]
+mel_vmin: -6. #-6.
+mel_vmax: 1.5
+interp_uv: true
+
+fs2_lays: 3
+fs2_heads: 4
+fs2_dim_head: 64
+fs2_kernel_size: 9
+timesteps: 1000
+K_step: 1000
+diff_decoder_type: RC1_unet
+diff_loss_type: l2
+schedule_type: 'linear'
+
+data_index_path: datax/
+
+num_ckpt_keep: 4
+permanent_ckpt_start: 200000
+permanent_ckpt_interval: 80000
+num_valid_plots: 15
+pndm_speedup: 10
+
+svs_batch_size: 3
+batch_size: 6
+accumulate_grad_batches: 1
