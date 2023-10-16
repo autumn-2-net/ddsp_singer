@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from ddsp.vocoder import CombSub, Sins
 # from ddspx.vocoder import CombSub
 from model.attention.attention_lay import attn_lay
-from model.diffusion.ddpm import GaussianDiffusion
+# from model.diffusion.ddpm import GaussianDiffusion
 from model.fastspeech.fastspeech import fastspeech2
 
 
