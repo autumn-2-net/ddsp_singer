@@ -5,7 +5,7 @@ import math
 from functools import partial
 from einops import rearrange, repeat
 
-# from local_attention import LocalAttention
+from local_attention import LocalAttention
 import torch.nn.functional as F
 #import fast_transformers.causal_product.causal_product_cuda
 
@@ -127,10 +127,9 @@ class _EncoderLayer(nn.Module):
         self.dropout = nn.Dropout(parent.residual_dropout)
         
         # selfatt -> fastatt: performer!
-        self.attn = Attention(dim = parent.dim_model,
-                                  heads = parent.num_heads,dim_head=32
-                                  # causal = False
-                              )
+        self.attn = SelfAttention(dim = parent.dim_model,
+                                  heads = parent.num_heads,
+                                  causal = False)
         
     #  METHODS  ########################################################################################################
 
@@ -313,46 +312,6 @@ class FastAttention(nn.Module):
         else:
             out = attn_fn(q, k, v)
             return out
-
-class Attention(nn.Module):
-    def __init__(self, dim, heads=4, dim_head=64, conditiondim=None):
-        super().__init__()
-        if conditiondim is None:
-            conditiondim = dim
-
-        self.scale = dim_head ** -0.5
-        self.heads = heads
-        hidden_dim = dim_head * heads
-        self.to_q = nn.Linear(dim, hidden_dim, bias=False)
-        self.to_kv = nn.Linear(conditiondim, hidden_dim * 2, bias=False)
-
-        self.to_out = nn.Sequential(nn.Linear(hidden_dim, dim, ),
-                                    )
-
-    def forward(self, q, kv=None, mask=None):
-        # b, c, h, w = x.shape
-        if kv is None:
-            kv = q
-        # q, kv = map(
-        #     lambda t: rearrange(t, "b c t -> b t c", ), (q, kv)
-        # )
-
-        q = self.to_q(q)
-        k, v = self.to_kv(kv).chunk(2, dim=2)
-
-        q, k, v = map(
-            lambda t: rearrange(t, "b t (h c) -> b h t c", h=self.heads), (q, k, v)
-        )
-
-        if mask is not None:
-            mask = mask.unsqueeze(1).unsqueeze(1)
-
-        with torch.backends.cuda.sdp_kernel(#enable_math=False
-                                            ):
-            out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask)
-
-        out = rearrange(out, "b h t c -> b t (h c) ", h=self.heads, )
-        return self.to_out(out)
 class SelfAttention(nn.Module):
     def __init__(self, dim, causal = False, heads = 8, dim_head = 64, local_heads = 0, local_window_size = 256, nb_features = None, feature_redraw_interval = 1000, generalized_attention = False, kernel_fn = nn.ReLU(), qr_uniform_q = False, dropout = 0., no_projection = False):
         super().__init__()

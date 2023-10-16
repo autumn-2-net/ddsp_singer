@@ -113,6 +113,7 @@ class BaseTask(PL.LightningModule):
         raise NotImplementedError()
 
     def on_train_epoch_start(self):
+        # torch.cuda.empty_cache()
         if self.training_sampler is not None:
             self.training_sampler.set_epoch(self.current_epoch)
 
@@ -122,9 +123,9 @@ class BaseTask(PL.LightningModule):
         """
         losses = self.run_model(sample)
         total_loss = sum(losses.values())
-        # return total_loss, {**losses, 'step':int(self.global_step)}
+        # return total_loss, {**losses, 'max_mem':int(torch.cuda.max_memory_allocated()),'mwm':torch.cuda.memory_allocated()}
         return total_loss, {**losses, }
-
+    # @torch.no_grad()
     def training_step(self, sample, batch_idx, optimizer_idx=-1):
         total_loss, log_outputs = self._training_step(sample)
 
@@ -264,7 +265,7 @@ class BaseTask(PL.LightningModule):
                                            # batch_sampler=self.training_sampler,
                                            num_workers=self.config['DL_workers'],
                                            prefetch_factor=self.config['dataloader_prefetch_factor'],
-                                           pin_memory=True,
+                                           # pin_memory=True,
                                            persistent_workers=True)
 
     def val_dataloader(self):

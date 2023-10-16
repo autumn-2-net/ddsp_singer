@@ -13,12 +13,12 @@ svcdata_paths: []
 
 
 DL_workers_val: 2
-DL_workers: 8
-dataloader_prefetch_factor: 4
+DL_workers: 9
+dataloader_prefetch_factor: 2
 
 optimizer_args:
   optimizer_cls: torch.optim.AdamW
-  lr: 0.0005
+  lr: 0.0006
   beta1: 0.9
   beta2: 0.98
   weight_decay: 0
@@ -32,8 +32,8 @@ optimizer_args:
 #  lr: 0.0001
 lr_scheduler_args:
   scheduler_cls: lr_scheduler.scheduler.WarmupLR
-  warmup_steps: 10000
-  min_lr: 0.00025
+  warmup_steps: 5000
+  min_lr: 0.0004
 
 log_interval: 50
 
@@ -68,16 +68,16 @@ pl_trainer_devices: 'auto'
 pl_trainer_num_nodes: 1
 
 pl_trainer_precision: 'bf16'
-
+#pl_trainer_precision: '32'
 clip_grad_norm: 1
 
 
 
 val_check_interval: 8000
 
-num_sanity_val_steps: 1
+num_sanity_val_steps: 15
 
-max_updates: 3200000
+max_updates: 256000
 
 base_work_dir: ckpt/
 
@@ -98,7 +98,7 @@ dict_path: ['dictionary.txt']
 fs2_hidden_size: 256
 mixenvc_hidden_size: 256
 
-mixenvc_lays: 3
+mixenvc_lays: 2
 mixenvc_heads: 4
 mixenvc_dim_head: 64
 condition_dim: 256
@@ -111,7 +111,7 @@ mel_vmin: -6. #-6.
 mel_vmax: 1.5
 interp_uv: true
 
-fs2_lays: 5
+fs2_lays: 4
 fs2_heads: 4
 fs2_dim_head: 64
 fs2_kernel_size: 9
@@ -130,5 +130,5 @@ num_valid_plots: 15
 pndm_speedup: 10
 
 svs_batch_size: 4
-batch_size: 8
+batch_size: 6
 accumulate_grad_batches: 1

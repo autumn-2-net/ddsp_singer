@@ -19,7 +19,7 @@ class HybridLoss(nn.Module):
         if detach_uv or loss_uv < uv_tolerance:
             loss_uv = loss_uv.detach()
         loss = loss_rss + self.lambda_uv * loss_uv
-        return loss, (loss_rss.float().item(), loss_uv.float().item())
+        return loss, (loss_rss, loss_uv)
 
 class UVLoss(nn.Module):
     def __init__(self, block_size, eps = 1e-5):

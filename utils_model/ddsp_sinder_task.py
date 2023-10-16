@@ -2,12 +2,14 @@ import pathlib
 import random
 
 import numpy as np
+import gc
+
 
 from model.ddsp_singer import ddsp_singer
 from model.mixmodel import ssvm
 from train_utils.ddsp_Tdataset_aug import SVS_Dataset, SVC_Dataset
 # from train_utils.ssvv_BatchSampler import MIX_Dataset
-from utils.data_fmelE import get_mel_from_audio
+
 from utils_model.base_model import BaseTask
 import torch
 import torch.nn as nn
@@ -15,8 +17,8 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 from vocoders.nsf_hifigan.nsf_hifigan import NsfHifiGAN
-from ddsp.loss import HybridLoss
-
+# from ddsp.loss import HybridLoss
+from ddspx.loss import HybridLoss
 def collates(minibatch):
     maxl=0
     max_wav=0
@@ -120,11 +122,12 @@ def collates_val(minibatch):
             #     xxx['cvec_feature'] = torch.tensor(i[j]).unsqueeze(0)
             #     continue
             if j == 'wav':
-                d = torch.tensor(i[j][:len(i['gtmel'])*512])
+                d = torch.tensor(i[j])#[:len(i['gtmel'])*512]
                 # wavl=len(d)
-                phpads_wav = len(i['gtmel'])*512 - len(d)
+                phpads_wav = len(i['mel2ph'])*512 - len(d)
                 d = F.pad(d, (0, phpads_wav), "constant", 0)
-                xxx[j] = d
+                xxx[j] = d.unsqueeze(0)
+                continue
                 # datx['wavmask'] = torch.tensor([True for _ in range(wavl)] + [False for _ in range(phpads_wav)])
 
             xxx[j]=torch.tensor(i[j]).unsqueeze(0)
@@ -195,18 +198,18 @@ def load_dict_list(paths):
     return phl
 
 
-class vcc:
-    def __init__(self):
-        self.vc=NsfHifiGAN(r'D:\propj\Disa\checkpoints\nsf_hifigan/model',use_natural_log=False).cuda()
-
-
-    @torch.no_grad()
-    def spec2wav(self, mel, f0, key_shift=0):
-
-
-        y = self.vc.spec2wav(mel=torch.tensor(mel).transpose(0,1).cuda(), f0=torch.tensor(f0).cuda(), key_shift=key_shift)
-
-        return y
+# class vcc:
+#     def __init__(self):
+#         self.vc=NsfHifiGAN(r'D:\propj\Disa\checkpoints\nsf_hifigan/model',use_natural_log=False).cuda()
+#
+#
+#     @torch.no_grad()
+#     def spec2wav(self, mel, f0, key_shift=0):
+#
+#
+#         y = self.vc.spec2wav(mel=torch.tensor(mel).transpose(0,1).cuda(), f0=torch.tensor(f0).cuda(), key_shift=key_shift)
+#
+#         return y
 class ddsp_ss(BaseTask):
     def __init__(self,config):
         super().__init__(config)
@@ -225,7 +228,7 @@ class ddsp_ss(BaseTask):
 
         self.use_vocoder=False
         # self.vocoder=vcc()
-
+        from utils.data_fmelE import get_mel_from_audio
         self.required_variances = []
         self.TF=get_mel_from_audio()
 
@@ -252,6 +255,8 @@ class ddsp_ss(BaseTask):
         # tasktype=sample['tasktype']
         svsmask = sample.get('svsmask')
         wavmask = sample.get('wavmask')
+        uv = sample.get('uv')
+        wav = sample.get('wav')
         # svcmask = sample.get('svcmask')
         # cvec_feature = sample.get('cvec_feature')
 
@@ -286,11 +291,27 @@ class ddsp_ss(BaseTask):
             # mel_loss = self.mel_loss(x_recon, x_noise, nonpadding=mask)
             # losses['mel_loss'] = mel_loss
 
+
+            # if self.global_step%1500==0:
+            #     torch.cuda.empty_cache()
+
             detach_uv = False
-            if self.global_step < 2000:
+            if self.global_step < 6000:
                 detach_uv = True
-            loss, (loss_rss, loss_uv) = self.wav_loss(signal, s_h, sample['wav'], (sample['uv']).float(), detach_uv=detach_uv,
-                                                  uv_tolerance=0.05)
+            if wavmask is not None:
+
+
+
+                loss, (loss_rss, loss_uv) = self.wav_loss(signal*wavmask.long(), s_h*wavmask.long(), wav*wavmask.long(), (uv).float(),
+                                                          detach_uv=detach_uv,
+                                                          uv_tolerance=0.05)
+            else:
+                loss, (loss_rss, loss_uv) = self.wav_loss(signal, s_h,  wav, (uv).float(),
+                                                          detach_uv=detach_uv,
+                                                          uv_tolerance=0.05)
+            # loss_rss:torch.tensor
+            # loss_rss.detach().cpu()
+
             if not inx:
                 self.log('loss_rss', loss_rss, prog_bar=True, logger=False, on_step=True, on_epoch=False)
                 self.log('loss_uv', loss_uv, prog_bar=True, logger=False, on_step=True, on_epoch=False)
@@ -309,8 +330,17 @@ class ddsp_ss(BaseTask):
     #     if self.use_vocoder and self.vocoder.get_device() != self.device:
     #         self.vocoder.to_device(self.device)
 
+    def on_train_epoch_start(self):
+        # print(torch.cuda.memory_summary())
+        # gc.collect()
+        # torch.cuda.empty_cache()
+        # gc.collect()
+        if self.training_sampler is not None:
+            self.training_sampler.set_epoch(self.current_epoch)
+
     def _validation_step(self, sample, batch_idx):
-        losses = self.run_model(sample, infer=False,inx=True)
+        with torch.no_grad():
+            losses = self.run_model(sample, infer=False,inx=True)
 
         if batch_idx < self.config['num_valid_plots'] \
                 and (self.trainer.distributed_sampler_kwargs or {}).get('rank', 0) == 0:
@@ -327,11 +357,19 @@ class ddsp_ss(BaseTask):
             # if mel_out.diff_out is not None:
 
             # mels=
-            mels = torch.log10(torch.clamp(self.TF(wav_out), min=1e-5))
-            GTmels = torch.log10(torch.clamp(self.TF(sample['wav']), min=1e-5))
-            self.plot_mel(batch_idx, GTmels.transpose(1,2), mels.transpose(1,2), name=f'diffmel_{batch_idx}')
-            self.logger.experiment.add_audio(f'diff_{batch_idx}_', wav_out, sample_rate=self.config['audio_sample_rate'],
+            with torch.no_grad():
+                self.TF=self.TF.cpu()
+                mels = torch.log10(torch.clamp(self.TF(wav_out.cpu().float()), min=1e-5))
+                GTmels = torch.log10(torch.clamp(self.TF(sample['wav'].cpu().float()), min=1e-5))
+                self.plot_mel(batch_idx, GTmels.transpose(1,2), mels.transpose(1,2), name=f'diffmel_{batch_idx}')
+                self.logger.experiment.add_audio(f'diff_{batch_idx}_', wav_out, sample_rate=self.config['audio_sample_rate'],
                                              global_step=self.global_step)
+                if batch_idx not in self.logged_gt_wav:
+                    # gt_wav = self.vocoder.spec2wav(gt_mel, f0=f0)
+                    self.logger.experiment.add_audio(f'gt_{batch_idx}_', sample['wav'],
+                                                     sample_rate=self.config['audio_sample_rate'],
+                                                     global_step=self.global_step)
+                    self.logged_gt_wav.add(batch_idx)
 
         # return losses, sample['size']
         return losses, 1
