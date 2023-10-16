@@ -145,6 +145,6 @@ if __name__ == '__main__':
     #     sss.append(models_ssvc.vocoder.spec2wav(i.squeeze( dim=0), f0=f0))
     # for i in sss:
     wavss=torch.cat(melss,dim=-1)
-    torchaudio.save('cpxmn.wav', wavss.cpu(), sample_rate=44100)
+    torchaudio.save('cpxmn.wav', wavss.detach().cpu(), sample_rate=44100)
 
     pass
