@@ -6,7 +6,7 @@ import gc
 
 
 from model.ddsp_singer import ddsp_singer
-from model.mixmodel import ssvm
+# from model.mixmodel import ssvm
 from train_utils.ddsp_Tdataset_aug import SVS_Dataset, SVC_Dataset
 # from train_utils.ssvv_BatchSampler import MIX_Dataset
 
@@ -17,8 +17,8 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 from vocoders.nsf_hifigan.nsf_hifigan import NsfHifiGAN
-# from ddsp.loss import HybridLoss
-from ddspx.loss import HybridLoss
+from ddsp.loss import HybridLoss
+# from ddspx.loss import HybridLoss
 def collates(minibatch):
     maxl=0
     max_wav=0
