@@ -12,7 +12,7 @@ audio_sample_rate: 44100
 audio_num_mel_bins: 128
 # Dataset, FS2, all NSF stages and final iSTFT share this frame hop.
 hop_size: 512
-# Data mel extraction / plots; the synthesis FFT is n_ffts[-1] below.
+# One FFT size for NSF source analysis, modulation and final synthesis.
 fft_size: 1024
 win_size: 1024
 fmin: 40
@@ -29,8 +29,7 @@ fs2_kernel_size: 3
 nsf_multistage_args:
   dims: [768, 1024, 2048]
   # Only channels increase; every stage retains T frames and hop=512.
-  # The last value also sets the final spectral head / iSTFT FFT size.
-  n_ffts: [2048, 1024, 1024]
+  num_front: 2
   num_blocks: [2, 2, 2]
   kernel_size: 31
   expansion: 2.0

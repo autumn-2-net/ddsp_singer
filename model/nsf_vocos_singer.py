@@ -18,6 +18,7 @@ class NSFVocosSinger(nn.Module):
                 n_mels=config['fs2_hidden_size'],
                 sample_rate=config['audio_sample_rate'],
                 hop_length=config['hop_size'],
+                n_fft=config['fft_size'],
                 **config.get('nsf_multistage_args', {}),
             )
         else:
