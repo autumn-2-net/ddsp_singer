@@ -3,8 +3,9 @@ import random
 
 import numpy as np
 import gc
+from functools import partial
 
-from model.ddsp_singer import ddsp_singer
+from model.singer import build_singer
 # from model.mixmodel import ssvm
 from train_utils.ddsp_Tdataset_aug import SVS_Dataset, SVC_Dataset
 # from train_utils.ssvv_BatchSampler import MIX_Dataset
@@ -16,11 +17,11 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 from vocoders.nsf_hifigan.nsf_hifigan import NsfHifiGAN
-from ddsp.loss import HybridLoss
+from ddsp.loss import HybridLoss, MSSLoss
 
 
 # from ddspx.loss import HybridLoss
-def collates(minibatch):
+def collates(minibatch, hop_size=512):
     maxl = 0
     max_wav = 0
 
@@ -39,7 +40,7 @@ def collates(minibatch):
         ssv = i
 
         svsd.append(ssv)
-    max_wav = maxl * 512
+    max_wav = maxl * hop_size
 
     svsd1 = []
     # {'type': 'svs', 'f0': f0.astype(np.float32), 'gtmel': mel, 'mel2ph': mel2ph, 'ph_idx': ph_idx,
@@ -100,7 +101,7 @@ def collates(minibatch):
     return finx
 
 
-def collates_val(minibatch):
+def collates_val(minibatch, hop_size=512):
     xxx = {}
     for i in minibatch:
         for j in i:
@@ -112,7 +113,7 @@ def collates_val(minibatch):
             if j == 'wav':
                 d = torch.tensor(i[j])  # [:len(i['gtmel'])*512]
                 # wavl=len(d)
-                phpads_wav = len(i['mel2ph']) * 512 - len(d)
+                phpads_wav = len(i['mel2ph']) * hop_size - len(d)
                 d = F.pad(d, (0, phpads_wav), "constant", 0)
                 xxx[j] = d.unsqueeze(0)
                 continue
@@ -197,26 +198,39 @@ class ddsp_ss(BaseTask):
         for i in config['dict_path']:
             vbc = vbc + load_dict_list(i)
         vbc = list(set(vbc))
-        self.model = ddsp_singer(config=config, vocab_size=len(vbc) + 1 + 2)
+        self.model = build_singer(config=config, vocab_size=len(vbc) + 1 + 2)
+        self.use_nsf_vocos = config.get('backbone', 'ddsp') == 'nsf_cgmlp_vocos'
         self.logged_gt_wav = set()
 
         self.train_dataset = SVS_Dataset(paths=str(pathlib.Path(config['data_index_path']) / 'train_svs'),
                                          config=config, vocab_list=vbc)
         self.valid_dataset = SVS_Dataset(paths=str(pathlib.Path(config['data_index_path']) / 'val_svs'), config=config,
                                          vocab_list=vbc)
-        self.train_dataset_collates = collates
-        self.valid_dataset_collates = collates_val
+        self.train_dataset_collates = partial(collates, hop_size=config['hop_size'])
+        self.valid_dataset_collates = partial(collates_val, hop_size=config['hop_size'])
 
         self.use_vocoder = False
         # self.vocoder=vcc()
         from utils.data_fmelE import get_mel_from_audio
         self.required_variances = []
-        self.TF = get_mel_from_audio()
+        self.TF = get_mel_from_audio(
+            sample_rate=config['audio_sample_rate'], n_fft=config['fft_size'],
+            win_length=config['win_size'], hop_length=config['hop_size'],
+            n_mels=config['audio_num_mel_bins'], f_min=config['fmin'], f_max=config['fmax'],
+        )
 
     def build_losses_and_metrics(self):
 
         # self.mel_loss = DiffusionNoiseLoss(loss_type=self.config['diff_loss_type'])
-        self.wav_loss = HybridLoss(512, 256, 2048, 4, 1.0, device='cuda')
+        if self.use_nsf_vocos:
+            self.nsf_loss_fft_sizes = self.config.get(
+                'nsf_loss_fft_sizes', [2048, 1024, 512, 256]
+            )
+            self.wav_loss = MSSLoss(self.nsf_loss_fft_sizes)
+            self.lambda_l1 = self.config.get('lambda_l1', 1.0)
+            self.lambda_mstft = self.config.get('lambda_mstft', 1.0)
+        else:
+            self.wav_loss = HybridLoss(512, 256, 2048, 4, 1.0, device='cuda')
 
     def run_model(self, sample, infer=False, inx=False):
         #
@@ -258,6 +272,30 @@ class ddsp_ss(BaseTask):
 
         if infer:
             return signal
+        elif self.use_nsf_vocos:
+            # Spectral losses require FP32 even when the backbone uses BF16.
+            with torch.autocast(device_type=signal.device.type, enabled=False):
+                prediction, reference = signal.float(), wav.float()
+                if wavmask is not None:
+                    prediction = prediction * wavmask
+                    reference = reference * wavmask
+                    loss_l1 = (prediction - reference).abs().sum() / wavmask.sum().clamp_min(1)
+                else:
+                    loss_l1 = F.l1_loss(prediction, reference)
+                # A short utterance can contain fewer samples than one FFT.
+                padding = max(0, max(self.nsf_loss_fft_sizes) - prediction.shape[-1])
+                loss_mstft = self.wav_loss(
+                    F.pad(prediction, (0, padding)), F.pad(reference, (0, padding))
+                )
+                loss = self.lambda_l1 * loss_l1 + self.lambda_mstft * loss_mstft
+            if not torch.isfinite(loss):
+                raise ValueError('Non-finite NSF Vocos waveform loss')
+            if not inx:
+                self.log('loss_l1', loss_l1.detach(), prog_bar=True, logger=False,
+                         on_step=True, on_epoch=False)
+                self.log('loss_mstft', loss_mstft.detach(), prog_bar=True, logger=False,
+                         on_step=True, on_epoch=False)
+            return {'wav_loss': loss}
         else:
             losses = {}
 
