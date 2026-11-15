@@ -12,13 +12,22 @@ class NSFVocosSinger(nn.Module):
         self.fs2 = fastspeech2(vocab_size=vocab_size, config=config)
         # The vocoder's `n_mels` denotes input channels here: these are learned
         # frame features, not a supervised or externally generated mel spectrum.
-        self.vocos = NSFCGMLPVocos(
-            n_mels=config['fs2_hidden_size'],
-            sample_rate=config['audio_sample_rate'],
-            hop_length=config['hop_size'],
-            n_fft=config['fft_size'],
-            **config.get('nsf_vocos_args', {}),
-        )
+        if config.get('backbone') == 'nsf_cgmlp_vocos_multistage':
+            from nsf_cgmlp_vocos_multistage import MultiStageNSFCGMLPVocos
+            self.vocos = MultiStageNSFCGMLPVocos(
+                n_mels=config['fs2_hidden_size'],
+                sample_rate=config['audio_sample_rate'],
+                hop_length=config['hop_size'],
+                **config.get('nsf_multistage_args', {}),
+            )
+        else:
+            self.vocos = NSFCGMLPVocos(
+                n_mels=config['fs2_hidden_size'],
+                sample_rate=config['audio_sample_rate'],
+                hop_length=config['hop_size'],
+                n_fft=config['fft_size'],
+                **config.get('nsf_vocos_args', {}),
+            )
 
     def forward(self, f0, txt_tokens=None, mel2ph=None, key_shift=None,
                 speed=None, infer=True, **kwargs):

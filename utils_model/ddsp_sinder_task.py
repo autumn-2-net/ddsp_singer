@@ -199,7 +199,9 @@ class ddsp_ss(BaseTask):
             vbc = vbc + load_dict_list(i)
         vbc = list(set(vbc))
         self.model = build_singer(config=config, vocab_size=len(vbc) + 1 + 2)
-        self.use_nsf_vocos = config.get('backbone', 'ddsp') == 'nsf_cgmlp_vocos'
+        self.use_nsf_vocos = config.get('backbone', 'ddsp') in (
+            'nsf_cgmlp_vocos', 'nsf_cgmlp_vocos_multistage'
+        )
         self.logged_gt_wav = set()
 
         self.train_dataset = SVS_Dataset(paths=str(pathlib.Path(config['data_index_path']) / 'train_svs'),
@@ -291,9 +293,9 @@ class ddsp_ss(BaseTask):
             if not torch.isfinite(loss):
                 raise ValueError('Non-finite NSF Vocos waveform loss')
             if not inx:
-                self.log('loss_l1', loss_l1.detach(), prog_bar=True, logger=False,
+                self.log('loss_l1', loss_l1.detach(), prog_bar=True, logger=True,
                          on_step=True, on_epoch=False)
-                self.log('loss_mstft', loss_mstft.detach(), prog_bar=True, logger=False,
+                self.log('loss_mstft', loss_mstft.detach(), prog_bar=True, logger=True,
                          on_step=True, on_epoch=False)
             return {'wav_loss': loss}
         else:

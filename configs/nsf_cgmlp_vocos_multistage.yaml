@@ -1,0 +1,72 @@
+# Independent multi-stage experiment; do not resume a single-stage checkpoint.
+backbone: nsf_cgmlp_vocos_multistage
+work_dir: ckpt/nsf_cgmlp_vocos_multistage
+base_work_dir: ckpt/
+init_checkpoint: null
+
+dict_path: ['dictionary.txt']
+data_index_path: datax/
+interp_uv: true
+
+audio_sample_rate: 44100
+audio_num_mel_bins: 128
+# Dataset, FS2, all NSF stages and final iSTFT share this frame hop.
+hop_size: 512
+# Data mel extraction / plots; the synthesis FFT is n_ffts[-1] below.
+fft_size: 1024
+win_size: 1024
+fmin: 40
+fmax: 16000
+mel_vmin: -6.0
+mel_vmax: 1.5
+
+fs2_hidden_size: 256
+fs2_lays: 4
+fs2_heads: 4
+fs2_dim_head: 64
+fs2_kernel_size: 3
+
+nsf_multistage_args:
+  dims: [768, 1024, 2048]
+  # Only channels increase; every stage retains T frames and hop=512.
+  # The last value also sets the final spectral head / iSTFT FFT size.
+  n_ffts: [2048, 1024, 1024]
+  num_blocks: [2, 2, 2]
+  kernel_size: 31
+  expansion: 2.0
+  dropout: 0.0
+
+lambda_l1: 1.0
+lambda_mstft: 1.0
+nsf_loss_fft_sizes: [2048, 1024, 512, 256]
+
+optimizer_args:
+  optimizer_cls: torch.optim.AdamW
+  lr: 0.0006
+  beta1: 0.9
+  beta2: 0.98
+  weight_decay: 0
+lr_scheduler_args:
+  scheduler_cls: lr_scheduler.scheduler.WarmupLR
+  warmup_steps: 5000
+  min_lr: 0.00001
+
+batch_size: 1
+DL_workers: 2
+DL_workers_val: 1
+dataloader_prefetch_factor: 2
+accumulate_grad_batches: 1
+pl_trainer_accelerator: gpu
+pl_trainer_devices: auto
+pl_trainer_num_nodes: 1
+pl_trainer_precision: bf16-mixed
+clip_grad_norm: 1
+max_updates: 256000
+val_check_interval: 2000
+num_sanity_val_steps: 2
+num_valid_plots: 2
+log_interval: 50
+num_ckpt_keep: 4
+permanent_ckpt_start: 200000
+permanent_ckpt_interval: 80000
+seed: 4444

@@ -71,7 +71,7 @@ def main():
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     args = parser.parse_args()
     config = get_config(args.config)
-    if config.get('backbone') != 'nsf_cgmlp_vocos':
+    if config.get('backbone') not in ('nsf_cgmlp_vocos', 'nsf_cgmlp_vocos_multistage'):
         parser.error('Use the NSF Vocos configuration saved with the checkpoint')
     vocab = load_vocabulary(config)
     model = build_singer(config, vocab_size=max(vocab.values()) + 1).to(args.device).eval()
